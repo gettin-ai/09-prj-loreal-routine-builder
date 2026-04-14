@@ -10,6 +10,27 @@ const FRIENDLY_OFF_TOPIC_RESPONSES = [
   "That one is outside my scope, but I can definitely help with beauty questions and L'Oreal routines. What would you like to work on?",
 ];
 
+const SEARCH_TERM_SYNONYMS = {
+  fragrance: ["perfume", "parfum", "cologne", "scent", "eau", "mist"],
+  perfume: ["fragrance", "parfum", "scent", "eau", "mist"],
+  cologne: ["fragrance", "perfume", "scent", "eau"],
+  scent: ["fragrance", "perfume", "cologne", "parfum"],
+  makeup: ["cosmetic", "foundation", "mascara", "lipstick", "palette"],
+  skincare: ["skin", "serum", "cleanser", "moisturizer", "spf", "treatment"],
+  haircare: ["hair", "shampoo", "conditioner", "styling", "scalp"],
+  cleanser: ["cleanse", "face wash", "wash"],
+  moisturizer: ["moisturiser", "lotion", "cream", "hydrate", "hydrating"],
+  moisturiser: ["moisturizer", "lotion", "cream", "hydrate", "hydrating"],
+  sunscreen: ["spf", "sun", "uv", "anthelios"],
+  spf: ["sunscreen", "sun", "uv"],
+  acne: ["blemish", "breakout", "pimple", "salicylic", "benzoyl"],
+  antiaging: ["anti aging", "wrinkle", "retinol", "firming", "fine lines"],
+  "anti-aging": ["anti aging", "wrinkle", "retinol", "firming", "fine lines"],
+  dry: ["hydrating", "moisturizing", "moisture", "rich", "nourishing"],
+  oily: ["oil control", "matte", "shine", "non greasy"],
+  sensitive: ["gentle", "soothing", "hypoallergenic", "fragrance free"],
+};
+
 const STORAGE_KEYS = {
   selectedProducts: "loreal-selected-products-v1",
 };
@@ -323,24 +344,52 @@ function getFilteredProducts() {
     );
   }
 
+  const termGroups = buildSearchTermGroups(state.searchTerm);
+
   return state.products.filter((product) => {
     const matchesCategory =
       state.currentCategory === "all" ||
       product.category === state.currentCategory;
 
-    const haystack = [
-      product.name,
-      product.brand,
-      product.category,
-      product.description,
-    ]
-      .join(" ")
-      .toLowerCase();
+    if (!matchesCategory) return false;
 
-    const matchesSearch = haystack.includes(state.searchTerm);
+    if (!termGroups.length) return true;
 
-    return matchesCategory && matchesSearch;
+    const haystack = normalizeSearchText(
+      [product.name, product.brand, product.category, product.description]
+        .join(" ")
+        .replace(/fragrance\s*[-]?\s*free/gi, "unscented"),
+    );
+
+    // Every typed token must match the product, but each token can match via synonyms.
+    return termGroups.every((group) =>
+      group.some((term) => haystack.includes(term)),
+    );
   });
+}
+
+function buildSearchTermGroups(rawSearchTerm) {
+  const normalized = normalizeSearchText(rawSearchTerm);
+  if (!normalized) return [];
+
+  const tokens = normalized.split(" ").filter(Boolean);
+
+  return tokens.map((token) => {
+    const synonyms = SEARCH_TERM_SYNONYMS[token] || [];
+    return [
+      ...new Set([token, ...synonyms.map((item) => normalizeSearchText(item))]),
+    ].filter(Boolean);
+  });
+}
+
+function normalizeSearchText(value) {
+  if (typeof value !== "string") return "";
+
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function pickRandomProductIds(products, count) {
@@ -686,7 +735,7 @@ function appendLoadingMessage(text) {
 }
 
 function appendMessage(role, text, options = {}) {
-  const { citations = [], persist = true } = options;
+  const { persist = true } = options;
 
   if (persist) {
     state.chatHistory.push({
@@ -704,42 +753,6 @@ function appendMessage(role, text, options = {}) {
     <div class="message-label">${label}</div>
     <div class="message-bubble">${formatMessageText(text)}</div>
   `;
-
-  if (role === "assistant" && citations.length) {
-    const uniqueCitations = dedupeCitationsForMessage(citations);
-
-    if (!uniqueCitations.length) {
-      chatWindow.appendChild(row);
-      scrollChatToBottom();
-      return;
-    }
-
-    const citationList = document.createElement("div");
-    citationList.className = "citation-list";
-
-    uniqueCitations.forEach((citation, index) => {
-      const link = document.createElement("a");
-      link.className = "citation-link";
-      link.href = citation.url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-
-      const readableTitle =
-        citation.title?.trim() ||
-        safeHostname(citation.url) ||
-        `Source ${index + 1}`;
-
-      const readableUrl = formatDisplayUrl(citation.url);
-
-      link.innerHTML = `<i class="fa-solid fa-link"></i> ${escapeHtml(
-        `Source ${index + 1}: ${readableTitle}`,
-      )}${readableUrl ? `<span>(${escapeHtml(readableUrl)})</span>` : ""}`;
-
-      citationList.appendChild(link);
-    });
-
-    row.appendChild(citationList);
-  }
 
   chatWindow.appendChild(row);
   scrollChatToBottom();
@@ -771,60 +784,87 @@ function toTitleCase(text) {
 }
 
 function formatMessageText(text) {
-  return escapeHtml(text)
+  return normalizeCitationPunctuation(linkifyText(escapeHtml(text)))
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br>");
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function linkifyText(escapedText) {
+  const seenLinks = new Set();
+
+  const withMarkdownLinks = escapedText.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s<]+)\)/gi,
+    (fullMatch, label, rawUrl) => {
+      const { cleanUrl } = splitTrailingUrlText(rawUrl, "");
+      const safeUrl = sanitizeHttpUrl(cleanUrl);
+      if (!safeUrl) return label;
+
+      const normalizedUrl = normalizeInlineUrl(safeUrl);
+      if (!normalizedUrl || seenLinks.has(normalizedUrl)) {
+        return "";
+      }
+
+      seenLinks.add(normalizedUrl);
+      const displayLabel = formatCompactLinkLabel(safeUrl, label);
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayLabel)}</a>`;
+    },
+  );
+
+  const urlPattern = /(https?:\/\/[^\s<]+)/gi;
+
+  const withRawLinks = withMarkdownLinks.replace(
+    urlPattern,
+    (rawUrl, offset, sourceText) => {
+      const previousChar =
+        typeof offset === "number" && offset > 0 ? sourceText[offset - 1] : "";
+
+      const { cleanUrl, trailingText } = splitTrailingUrlText(
+        rawUrl,
+        previousChar,
+      );
+
+      const safeUrl = sanitizeHttpUrl(cleanUrl);
+      if (!safeUrl) return rawUrl;
+
+      const normalizedUrl = normalizeInlineUrl(safeUrl);
+      if (!normalizedUrl || seenLinks.has(normalizedUrl)) {
+        return trailingText;
+      }
+
+      seenLinks.add(normalizedUrl);
+
+      const linkLabel = formatCompactLinkLabel(safeUrl);
+
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkLabel)}</a>${trailingText}`;
+    },
+  );
+
+  return withRawLinks;
 }
 
-function safeHostname(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
+function normalizeCitationPunctuation(text) {
+  return text
+    .replace(/\[\s*(<a\b[^>]*>[^<]*<\/a>)\s*\]/gi, "$1")
+    .replace(/\(\s*(<a\b[^>]*>[^<]*<\/a>)\s*\)\)+/gi, "($1)")
+    .replace(/\(\s*(<a\b[^>]*>[^<]*<\/a>)(?!\s*\))/gi, "($1)")
+    .replace(/\(\s*(?=\n|$)/g, "")
+    .replace(/\(\s*(?=<br>|$)/g, "");
 }
 
-function formatDisplayUrl(url) {
+function formatCompactLinkLabel(url, fallbackLabel = "") {
   try {
     const parsed = new URL(url);
-    const shortPath =
-      parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
-    return `${parsed.hostname.replace(/^www\./, "")}${shortPath}`;
+    const hostname = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    return hostname || fallbackLabel || url;
   } catch {
-    return "";
+    return fallbackLabel || url;
   }
 }
 
-function dedupeCitationsForMessage(citations) {
-  const seen = new Set();
-
-  return citations.filter((citation) => {
-    if (!citation?.url) return false;
-
-    const normalizedUrl = normalizeCitationUrl(citation.url);
-    if (!normalizedUrl || seen.has(normalizedUrl)) {
-      return false;
-    }
-
-    seen.add(normalizedUrl);
-    return true;
-  });
-}
-
-function normalizeCitationUrl(url) {
+function normalizeInlineUrl(url) {
   try {
     const parsed = new URL(url);
     parsed.hash = "";
-
     [
       "utm_source",
       "utm_medium",
@@ -844,6 +884,50 @@ function normalizeCitationUrl(url) {
 
     return `${hostname}${pathname}${search ? `?${search}` : ""}`;
   } catch {
-    return String(url).trim().toLowerCase();
+    return "";
   }
+}
+
+function splitTrailingUrlText(url, previousChar = "") {
+  const punctuation = new Set([")", "]", "}", ".", ",", ";", ":", "!", "?"]);
+  let cleanUrl = url;
+  let trailingText = "";
+
+  while (cleanUrl.length) {
+    const lastChar = cleanUrl[cleanUrl.length - 1];
+    if (!punctuation.has(lastChar)) break;
+
+    if (lastChar === ")") {
+      const openCount = (cleanUrl.match(/\(/g) || []).length;
+      const closeCount = (cleanUrl.match(/\)/g) || []).length;
+      if (closeCount <= openCount) break;
+    }
+
+    trailingText = `${lastChar}${trailingText}`;
+    cleanUrl = cleanUrl.slice(0, -1);
+  }
+
+  return { cleanUrl, trailingText };
+}
+
+function sanitizeHttpUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

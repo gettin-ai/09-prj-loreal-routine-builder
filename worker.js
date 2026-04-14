@@ -177,8 +177,10 @@ Critical product rules:
 - You may still answer general beauty questions, but make it clear when you are speaking generally versus referring to the selected products.
 
 Live information rules:
-- Use web search to provide current, real-world information when useful.
+- Use web search to provide current, real-world information in every on-topic response.
+- Keep the answer tied to L'Oreal products, brands, routines, ingredients, usage guidance, or recent product context when possible.
 - Include source-backed claims naturally in the answer.
+- Cite at least one current source-backed detail whenever relevant information is available.
 - Keep answers practical, polished, and easy to follow.
 
 Routine behavior:
@@ -239,11 +241,9 @@ function normalizeResponse(data, context = {}) {
     ...extractWebSearchSources(data),
   ]);
 
-  const citations = shouldIncludeCitations(context) ? rawCitations : [];
-
   return {
     text: text || "I couldn't generate a response.",
-    citations,
+    citations: rawCitations,
   };
 }
 
@@ -536,16 +536,46 @@ function extractWebSearchSources(data) {
 
 function dedupeCitations(citations) {
   const seen = new Set();
+  const deduped = [];
 
-  return citations.filter((citation) => {
-    if (!citation?.url) return false;
+  citations.forEach((citation) => {
+    if (!citation?.url) return;
 
-    const normalizedUrl = normalizeCitationUrl(citation.url);
-    if (!normalizedUrl || seen.has(normalizedUrl)) return false;
+    const cleanedUrl = cleanCitationUrl(citation.url);
+    if (!cleanedUrl) return;
+
+    const normalizedUrl = normalizeCitationUrl(cleanedUrl);
+    if (!normalizedUrl || seen.has(normalizedUrl)) return;
 
     seen.add(normalizedUrl);
-    return true;
+    deduped.push({
+      title: citation.title || "",
+      url: cleanedUrl,
+    });
   });
+
+  return deduped;
+}
+
+function cleanCitationUrl(url) {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+
+    [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "gclid",
+      "fbclid",
+    ].forEach((param) => parsed.searchParams.delete(param));
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
 }
 
 function normalizeCitationUrl(url) {

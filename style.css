@@ -560,6 +560,18 @@ button {
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+.message-row.assistant .message-bubble a {
+  color: #1f6fb6;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.message-row.assistant .message-bubble a:hover,
+.message-row.assistant .message-bubble a:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
 .message-row.user .message-bubble {
   background: linear-gradient(135deg, #291514, var(--loreal-red));
   color: var(--loreal-white);
