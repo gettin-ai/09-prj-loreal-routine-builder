@@ -1,11 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>L'Oréal | Smart Routine &amp; Product Advisor</title>
+    <title>L'Oréal | Product-Aware Routine Builder</title>
+    <link rel="icon" href="data:," />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <link
@@ -16,77 +20,153 @@
   </head>
 
   <body>
-    <div class="page-wrapper">
-      <!------- Header / Branding ------->
-      <header class="site-header">
-        <img src="img/loreal-logo.png" alt="L'Oréal Logo" class="logo" />
-        <h1 class="site-title">Smart Routine &amp; Product Advisor</h1>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-card">
+          <div class="brand-chip">
+            <img
+              src="img/loreal-logo.png"
+              alt="L'Oréal logo"
+              class="hero-logo"
+            />
+          </div>
+
+          <div class="hero-copy">
+            <p class="eyebrow">L'Oréal Product-Aware Routine Builder</p>
+            <h1>
+              Discover products, routines, and recommendations tailored to you.
+            </h1>
+            <p class="hero-text">
+              Browse real products from L'Oréal family brands, select what fits
+              your needs, and generate an AI-powered routine you can keep
+              refining in chat.
+            </p>
+          </div>
+        </div>
       </header>
 
-      <!-- Category Filter -->
-      <div class="search-section">
-        <select id="categoryFilter">
-          <option value="" disabled selected>Choose a Category</option>
-          <option value="cleanser">Cleansers</option>
-          <option value="moisturizer">Moisturizers & Treatments</option>
-          <option value="haircare">Haircare</option>
-          <option value="makeup">Makeup</option>
-          <option value="hair color">Hair Color</option>
-          <option value="hair styling">Hair Styling</option>
-          <option value="men's grooming">Men's Grooming</option>
-          <option value="suncare">Suncare</option>
-          <option value="fragrance">Fragrance</option>
-        </select>
-      </div>
+      <main class="app-card">
+        <section class="controls-panel" aria-label="Browse and filter products">
+          <div class="field-group field-search">
+            <label for="productSearch">Search products</label>
+            <div class="field-shell">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                id="productSearch"
+                type="search"
+                placeholder="Search by product name, brand, category, or keyword..."
+                autocomplete="off"
+              />
+            </div>
+          </div>
 
-      <!-- Products Grid -->
-      <div id="productsContainer" class="products-grid"></div>
+          <div class="field-group">
+            <label for="categoryFilter">Category</label>
+            <div class="field-shell select-shell">
+              <select id="categoryFilter">
+                <option value="all">All Categories</option>
+              </select>
+            </div>
+          </div>
+        </section>
 
-      <!-- Selected Products -->
-      <div class="selected-products">
-        <h2>Selected Products</h2>
-        <div id="selectedProductsList"></div>
-        <button id="generateRoutine" class="generate-btn">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Routine
-        </button>
-      </div>
+        <section class="products-section">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Product Browser</p>
+              <h2>Build your selection</h2>
+            </div>
+            <p id="productsStatus" class="section-note">Loading products...</p>
+          </div>
 
-      <!------- Chat Area ------->
-      <section class="chatbox">
-        <h2>Let's Build Your Routine</h2>
-        <div id="chatWindow" class="chat-window"></div>
+          <div
+            id="productsContainer"
+            class="products-grid"
+            aria-live="polite"
+          ></div>
+        </section>
 
-        <form id="chatForm" class="chat-form">
-          <label for="userInput" class="visually-hidden">Message</label>
-          <input
-            id="userInput"
-            name="userInput"
-            type="text"
-            placeholder="Ask me about products or routines…"
-            autocomplete="off"
-            required
-          />
-          <button type="submit" id="sendBtn">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span class="visually-hidden">Send</span>
+        <section class="selected-panel">
+          <div class="section-header section-header-tight">
+            <div>
+              <p class="section-kicker">Selected Products</p>
+              <h2>
+                <span id="selectionCount">0</span> items ready for your routine
+              </h2>
+            </div>
+
+            <button id="clearSelections" class="clear-btn" type="button" hidden>
+              Clear all
+            </button>
+          </div>
+
+          <div
+            id="selectedProductsList"
+            class="selected-list"
+            aria-live="polite"
+          ></div>
+
+          <button
+            id="generateRoutine"
+            class="generate-btn"
+            type="button"
+            disabled
+          >
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Generate Personalized Routine
           </button>
-        </form>
-      </section>
 
-      <!------- Footer Links ------->
+          <p class="helper-text">
+            The routine is generated only from the products you selected.
+          </p>
+        </section>
+
+        <section class="chat-panel" aria-label="Routine chat">
+          <div class="chat-header">
+            <div>
+              <p class="section-kicker">Routine Advisor</p>
+              <h2>Ask follow-up questions</h2>
+            </div>
+            <span id="chatStatus" class="chat-status">Ready</span>
+          </div>
+
+          <div id="chatWindow" class="chat-window" aria-live="polite"></div>
+
+          <form id="chatForm" class="chat-form">
+            <label for="userInput" class="visually-hidden">Message</label>
+            <input
+              id="userInput"
+              name="userInput"
+              type="text"
+              placeholder="Ask about your routine, products, skincare, haircare, makeup, or fragrance..."
+              autocomplete="off"
+              required
+            />
+            <button type="submit" id="sendBtn" aria-label="Send message">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
+
+          <p class="chat-footnote">
+            When the model uses live web information, citations appear beneath
+            the response.
+          </p>
+        </section>
+      </main>
+
       <footer class="site-footer">
-        <p>&copy; 2025 L'Oréal. All rights reserved.</p>
+        <p>&copy; 2026 L'Oréal Product-Aware Routine Builder</p>
         <nav>
-          <!-- These URLs are placeholders -->
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms of Use</a>
-          <a href="#">Contact</a>
+          <a
+            href="https://www.loreal.com/en/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Official L'Oréal site</a
+          >
         </nav>
       </footer>
     </div>
 
-    <!-- secrets.js can be removed when using Cloudflare Workers for API requests -->
-    <script src="secrets.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
