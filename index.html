@@ -32,7 +32,7 @@
           </div>
 
           <div class="hero-copy">
-            <p class="eyebrow">L'Oréal Product-Aware Routine Builder</p>
+            <p class="eyebrow">Routine Builder</p>
             <h1>
               Discover products, routines, and recommendations tailored to you.
             </h1>
@@ -112,7 +112,7 @@
             type="button"
             disabled
           >
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <i class="fa-solid fa-wand-magic-sparkles sparkle-icon"></i>
             Generate Personalized Routine
           </button>
 
@@ -146,13 +146,41 @@
               <i class="fa-solid fa-paper-plane"></i>
             </button>
           </form>
-
-          <p class="chat-footnote">
-            When the model uses live web information, citations appear beneath
-            the response.
-          </p>
         </section>
       </main>
+
+      <div id="productModal" class="product-modal" hidden aria-hidden="true">
+        <div class="product-modal-backdrop" data-modal-close></div>
+        <div
+          class="product-modal-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="productModalTitle"
+        >
+          <button
+            type="button"
+            class="product-modal-close"
+            aria-label="Close product details"
+            data-modal-close
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+
+          <div class="product-modal-media">
+            <img id="productModalImage" src="" alt="" />
+          </div>
+
+          <div class="product-modal-copy">
+            <p id="productModalBrand" class="product-brand"></p>
+            <h3 id="productModalTitle"></h3>
+            <p id="productModalCategory" class="product-meta"></p>
+            <p
+              id="productModalDescription"
+              class="product-modal-description"
+            ></p>
+          </div>
+        </div>
+      </div>
 
       <footer class="site-footer">
         <p>&copy; 2026 L'Oréal Product-Aware Routine Builder</p>

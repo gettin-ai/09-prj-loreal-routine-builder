@@ -85,6 +85,33 @@ If the browser blocks requests, verify Worker CORS headers include:
 
 Also make sure the Worker handles `OPTIONS` requests.
 
+### Worker returns 400: unsupported `reasoning_effort`
+
+Example message:
+
+- `Unsupported parameter: 'reasoning_effort'. In the Responses API, this parameter has moved to 'reasoning.effort'.`
+
+Fix:
+
+1. Open your Worker request body in `worker.js`.
+2. Remove `reasoning_effort`.
+3. Use either:
+   - `reasoning: { effort: "low" }` for explicit control, or
+   - no `reasoning` field (API default behavior).
+4. Redeploy the Worker.
+
+### Frontend error: `normalizeCitationUrl is not defined`
+
+Example message:
+
+- `ReferenceError: normalizeCitationUrl is not defined`
+
+Fix:
+
+1. Open `script.js` and check the citation filtering function.
+2. Replace `normalizeCitationUrl(...)` with the existing frontend helper `normalizeInlineUrl(...)`, or add a matching helper in `script.js`.
+3. Refresh the page after saving changes.
+
 ## What Happened In This Project (Debug Notes)
 
 This project had two real production issues while connecting the chatbot to the Worker.
@@ -125,8 +152,44 @@ Resolution:
    - `text: { verbosity: "medium" }`
 3. Redeploy the Worker.
 
+### Issue C: Worker returned 400 for `reasoning_effort`
+
+Symptoms:
+
+- App error showed:
+  `Unsupported parameter: 'reasoning_effort'. In the Responses API, this parameter has moved to 'reasoning.effort'.`
+
+Root cause:
+
+- The Worker used the deprecated `reasoning_effort` field.
+
+Resolution:
+
+1. Remove `reasoning_effort` from the Responses payload.
+2. If reasoning control is needed, use `reasoning: { effort: "low" }`.
+3. Redeploy the Worker.
+
+### Issue D: Frontend crashed while rendering citations
+
+Symptoms:
+
+- Browser console showed:
+  `ReferenceError: normalizeCitationUrl is not defined`
+
+Root cause:
+
+- `script.js` called a citation helper that existed in the Worker file but not in frontend code.
+
+Resolution:
+
+1. Update citation filtering to use frontend helper `normalizeInlineUrl(...)`.
+2. Keep frontend and Worker utility names consistent when sharing logic.
+3. Refresh and retest routine generation/chat.
+
 ### Final stable state
 
 - Frontend calls only the Worker endpoint.
 - Worker reads API key from `OPENAI_API_KEY` environment secret.
 - Responses API call uses `text.verbosity`.
+- Worker payload does not use deprecated `reasoning_effort`.
+- Frontend citation filtering uses helpers that exist in `script.js`.

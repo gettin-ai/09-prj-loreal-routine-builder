@@ -56,7 +56,6 @@ const RTL_LANGUAGE_CODES = new Set([
 const state = {
   products: [],
   selectedIds: new Set(),
-  expandedIds: new Set(),
   initialProductIds: new Set(),
   showInitialRandomSet: true,
   chatHistory: [],
@@ -78,12 +77,21 @@ const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
 const chatStatus = document.getElementById("chatStatus");
+const productModal = document.getElementById("productModal");
+const productModalImage = document.getElementById("productModalImage");
+const productModalBrand = document.getElementById("productModalBrand");
+const productModalTitle = document.getElementById("productModalTitle");
+const productModalCategory = document.getElementById("productModalCategory");
+const productModalDescription = document.getElementById(
+  "productModalDescription",
+);
 
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   setupAutoDirectionSync();
   attachEventListeners();
+  setupProductModal();
   renderWelcomeMessage();
 
   try {
@@ -124,7 +132,7 @@ function attachEventListeners() {
     if (detailsButton) {
       event.stopPropagation();
       const productId = Number(detailsButton.dataset.productId);
-      toggleDetails(productId);
+      openProductModal(productId);
       return;
     }
 
@@ -423,7 +431,6 @@ function renderProducts() {
   productsContainer.innerHTML = filteredProducts
     .map((product) => {
       const isSelected = state.selectedIds.has(product.id);
-      const isExpanded = state.expandedIds.has(product.id);
 
       return `
         <article
@@ -442,10 +449,8 @@ function renderProducts() {
               class="details-btn"
               data-action="details"
               data-product-id="${product.id}"
-              aria-expanded="${String(isExpanded)}"
-              aria-controls="product-description-${product.id}"
             >
-              ${isExpanded ? "Hide details" : "Details"}
+              Details
             </button>
           </div>
 
@@ -466,14 +471,6 @@ function renderProducts() {
                 : `Click to select`
             }
           </button>
-
-          <div
-            id="product-description-${product.id}"
-            class="product-description"
-            ${isExpanded ? "" : "hidden"}
-          >
-            ${escapeHtml(product.description)}
-          </div>
         </article>
       `;
     })
@@ -545,14 +542,44 @@ function clearSelections() {
   renderSelectedProducts();
 }
 
-function toggleDetails(productId) {
-  if (state.expandedIds.has(productId)) {
-    state.expandedIds.delete(productId);
-  } else {
-    state.expandedIds.add(productId);
-  }
+function setupProductModal() {
+  if (!productModal) return;
 
-  renderProducts();
+  productModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-modal-close]")) {
+      closeProductModal();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !productModal.hidden) {
+      closeProductModal();
+    }
+  });
+}
+
+function openProductModal(productId) {
+  const product = state.products.find((item) => item.id === productId);
+  if (!product || !productModal) return;
+
+  productModalImage.src = product.image;
+  productModalImage.alt = product.name;
+  productModalBrand.textContent = product.brand;
+  productModalTitle.textContent = product.name;
+  productModalCategory.textContent = formatCategory(product.category);
+  productModalDescription.textContent = product.description;
+
+  productModal.hidden = false;
+  productModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeProductModal() {
+  if (!productModal) return;
+
+  productModal.hidden = true;
+  productModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
 }
 
 function renderWelcomeMessage() {
@@ -714,6 +741,7 @@ function setBusyState(isBusy, label) {
   state.isLoading = isBusy;
   chatStatus.textContent = label;
   chatStatus.classList.toggle("is-busy", isBusy);
+  document.body.classList.toggle("is-waiting", isBusy);
 
   generateRoutineBtn.disabled = getSelectedProducts().length === 0 || isBusy;
   sendBtn.disabled = isBusy;
@@ -735,7 +763,7 @@ function appendLoadingMessage(text) {
 }
 
 function appendMessage(role, text, options = {}) {
-  const { persist = true } = options;
+  const { persist = true, citations = [] } = options;
 
   if (persist) {
     state.chatHistory.push({
@@ -749,9 +777,12 @@ function appendMessage(role, text, options = {}) {
 
   const label = role === "user" ? "You" : "Advisor";
 
+  const citationMarkup =
+    role === "assistant" ? renderCitationList(citations, text) : "";
+
   row.innerHTML = `
     <div class="message-label">${label}</div>
-    <div class="message-bubble">${formatMessageText(text)}</div>
+    <div class="message-bubble">${formatMessageText(text)}${citationMarkup}</div>
   `;
 
   chatWindow.appendChild(row);
@@ -792,39 +823,27 @@ function formatMessageText(text) {
 function linkifyText(escapedText) {
   const seenLinks = new Set();
 
-  const withMarkdownLinks = escapedText.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^\s<]+)\)/gi,
-    (fullMatch, label, rawUrl) => {
-      const { cleanUrl } = splitTrailingUrlText(rawUrl, "");
-      const safeUrl = sanitizeHttpUrl(cleanUrl);
-      if (!safeUrl) return label;
+  const linkPattern =
+    /\[([^\]]+)\]\(((?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<]*)?)\)|(https?:\/\/[^\s<]+)|(?<!["'=\/])(\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<]*)?)/gi;
 
-      const normalizedUrl = normalizeInlineUrl(safeUrl);
-      if (!normalizedUrl || seenLinks.has(normalizedUrl)) {
-        return "";
-      }
-
-      seenLinks.add(normalizedUrl);
-      const displayLabel = formatCompactLinkLabel(safeUrl, label);
-      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayLabel)}</a>`;
-    },
-  );
-
-  const urlPattern = /(https?:\/\/[^\s<]+)/gi;
-
-  const withRawLinks = withMarkdownLinks.replace(
-    urlPattern,
-    (rawUrl, offset, sourceText) => {
+  return escapedText.replace(
+    linkPattern,
+    (fullMatch, label, markdownUrl, rawUrl, bareDomain, offset, sourceText) => {
       const previousChar =
         typeof offset === "number" && offset > 0 ? sourceText[offset - 1] : "";
 
+      const candidateUrl = markdownUrl || rawUrl || bareDomain;
+      if (!candidateUrl) return fullMatch;
+
       const { cleanUrl, trailingText } = splitTrailingUrlText(
-        rawUrl,
+        normalizeUrlForLinking(candidateUrl),
         previousChar,
       );
 
       const safeUrl = sanitizeHttpUrl(cleanUrl);
-      if (!safeUrl) return rawUrl;
+      if (!safeUrl) {
+        return markdownUrl ? label : fullMatch;
+      }
 
       const normalizedUrl = normalizeInlineUrl(safeUrl);
       if (!normalizedUrl || seenLinks.has(normalizedUrl)) {
@@ -833,13 +852,88 @@ function linkifyText(escapedText) {
 
       seenLinks.add(normalizedUrl);
 
-      const linkLabel = formatCompactLinkLabel(safeUrl);
+      const displayLabel = markdownUrl
+        ? formatCompactLinkLabel(safeUrl, label)
+        : formatCompactLinkLabel(safeUrl);
 
-      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkLabel)}</a>${trailingText}`;
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayLabel)}</a>${trailingText}`;
     },
   );
+}
 
-  return withRawLinks;
+function renderCitationList(citations, text = "") {
+  if (!Array.isArray(citations) || citations.length === 0) {
+    return "";
+  }
+
+  const relevantCitations = filterRelevantCitations(citations, text).slice(
+    0,
+    3,
+  );
+
+  if (!relevantCitations.length) {
+    return "";
+  }
+
+  const items = relevantCitations
+    .map((citation) => {
+      const safeUrl = sanitizeHttpUrl(citation?.url || "");
+      if (!safeUrl) return "";
+
+      const label = citation?.title
+        ? citation.title
+        : formatCompactLinkLabel(safeUrl, safeUrl);
+
+      return `<a class="citation-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+    })
+    .filter(Boolean)
+    .join("");
+
+  if (!items) return "";
+
+  return `<div class="citation-list" aria-label="Sources">${items}</div>`;
+}
+
+function filterRelevantCitations(citations, text) {
+  const normalizedText = normalizeForCompare(text);
+  const textWords = new Set(normalizedText.match(/\b[a-z0-9]+\b/g) || []);
+
+  const seen = new Set();
+
+  return citations.filter((citation) => {
+    const safeUrl = sanitizeHttpUrl(citation?.url || "");
+    if (!safeUrl) return false;
+
+    const normalizedUrl = normalizeInlineUrl(safeUrl);
+    if (!normalizedUrl || seen.has(normalizedUrl)) return false;
+
+    const hostname = (() => {
+      try {
+        return new URL(safeUrl).hostname.replace(/^www\./, "").toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
+
+    const titleWords =
+      normalizeForCompare(citation?.title || "")
+        .match(/\b[a-z0-9]+\b/g)
+        ?.filter((word) => word.length > 2) || [];
+
+    const hostWords = hostname
+      .split(".")
+      .flatMap((segment) => segment.split(/[-_]/g))
+      .filter((word) => word.length > 2);
+
+    const relevant =
+      hostWords.some((word) => textWords.has(word)) ||
+      titleWords.some((word) => textWords.has(word));
+
+    if (!relevant) return false;
+
+    seen.add(normalizedUrl);
+    return true;
+  });
 }
 
 function normalizeCitationPunctuation(text) {
@@ -859,6 +953,23 @@ function formatCompactLinkLabel(url, fallbackLabel = "") {
   } catch {
     return fallbackLabel || url;
   }
+}
+
+function normalizeUrlForLinking(url) {
+  if (typeof url !== "string") return "";
+
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s<]*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return trimmed;
 }
 
 function normalizeInlineUrl(url) {

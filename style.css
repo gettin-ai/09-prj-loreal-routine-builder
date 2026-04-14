@@ -32,11 +32,7 @@ body {
   margin: 0;
   font-family: "Montserrat", Arial, Helvetica, sans-serif;
   color: var(--loreal-charcoal);
-  background: linear-gradient(
-    to bottom,
-    var(--loreal-black) 0 340px,
-    var(--loreal-ivory) 340px 100%
-  );
+  background: var(--loreal-ivory);
   min-height: 100vh;
 }
 
@@ -62,43 +58,70 @@ button {
 }
 
 .hero {
-  padding: 18px 0 24px;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 0 0 24px;
 }
 
 .hero-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 28px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 20px;
   background:
     radial-gradient(
-      circle at top right,
-      rgba(199, 160, 70, 0.16),
-      transparent 32%
+      circle at 88% 10%,
+      rgba(244, 224, 176, 0.5),
+      rgba(244, 224, 176, 0.22) 38%,
+      transparent 68%
+    ),
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255, 255, 255, 0.16),
+      transparent 52%
     ),
     linear-gradient(135deg, #141414, #0b0b0b);
   color: var(--loreal-white);
-  padding: 28px 34px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-lg);
+  padding: 30px 34px 32px;
+  border: 0;
+  border-radius: 0;
   box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+.hero-copy {
+  width: 100%;
+  max-width: 76ch;
 }
 
 .brand-chip {
   background: rgba(255, 255, 255, 0.96);
   border-radius: 22px;
-  padding: 18px 22px;
-  min-width: 160px;
+  padding: 20px 28px;
+  min-width: 232px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .hero-logo {
-  width: 120px;
+  width: 170px;
 }
 
-.eyebrow,
+.eyebrow {
+  margin: 0 0 10px;
+  color: #f4d7a1;
+  font-size: clamp(1.1rem, 2.2vw, 1.55rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(120deg, #f8e7c6 8%, #d7b46a 48%, #fff3dc 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .section-kicker {
   margin: 0 0 10px;
   color: var(--loreal-gold);
@@ -110,15 +133,18 @@ button {
 
 .hero-copy h1 {
   margin: 0 0 14px;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(2.2rem, 4.6vw, 4rem);
-  line-height: 0.98;
-  max-width: 13ch;
+  font-family: "Montserrat", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.7rem, 2.8vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.22;
+  max-width: 72ch;
+  margin-inline: auto;
 }
 
 .hero-text {
   margin: 0;
-  max-width: 64ch;
+  max-width: 72ch;
+  margin-inline: auto;
   color: rgba(255, 255, 255, 0.84);
   font-size: 1rem;
   line-height: 1.6;
@@ -377,6 +403,97 @@ button {
   line-height: 1.65;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
+.product-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.product-modal[hidden] {
+  display: none;
+}
+
+.product-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 8, 8, 0.56);
+  backdrop-filter: blur(3px);
+}
+
+.product-modal-dialog {
+  position: relative;
+  width: min(620px, calc(100vw - 28px));
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  background: var(--loreal-panel);
+  border: 1px solid var(--loreal-stone);
+  border-radius: 26px;
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.product-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #efe7dd;
+  color: var(--loreal-charcoal);
+}
+
+.product-modal-close:hover,
+.product-modal-close:focus-visible {
+  background: #e3d5c8;
+  outline: none;
+}
+
+.product-modal-media {
+  width: 100%;
+  min-height: 190px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f7f1ea, #fff);
+}
+
+.product-modal-media img {
+  width: min(190px, 54vw);
+  height: min(190px, 54vw);
+  object-fit: contain;
+}
+
+.product-modal-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.product-modal-copy h3 {
+  margin: 0;
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
+  line-height: 1.18;
+}
+
+.product-modal-description {
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--loreal-line);
+  color: #4a4540;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .selected-panel {
   margin-bottom: 28px;
 }
@@ -453,6 +570,37 @@ button {
   font-size: 1rem;
   font-weight: 700;
   box-shadow: 0 14px 26px rgba(143, 22, 18, 0.18);
+}
+
+.generate-btn .sparkle-icon {
+  margin-right: 8px;
+  transition:
+    color 0.2s ease,
+    text-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+body.is-waiting .generate-btn .sparkle-icon {
+  animation: sparkle-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes sparkle-pulse {
+  0%,
+  100% {
+    color: #fff7df;
+    opacity: 0.72;
+    text-shadow: 0 0 0 rgba(255, 213, 79, 0);
+    transform: scale(1);
+  }
+
+  50% {
+    color: #ffe06a;
+    opacity: 1;
+    text-shadow:
+      0 0 8px rgba(255, 213, 79, 0.95),
+      0 0 16px rgba(255, 213, 79, 0.6);
+    transform: scale(1.06);
+  }
 }
 
 .generate-btn:hover:not(:disabled),
@@ -643,7 +791,7 @@ button {
 
 .site-footer {
   text-align: center;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(0, 0, 0, 0.8);
   padding: 24px 0 8px;
 }
 
@@ -653,13 +801,13 @@ button {
 }
 
 .site-footer a {
-  color: var(--loreal-white);
-  text-decoration-color: rgba(255, 255, 255, 0.45);
+  color: var(--loreal-red-deep);
+  text-decoration-color: rgba(26, 13, 13, 0.45);
 }
 
 .site-footer a:hover,
 .site-footer a:focus-visible {
-  color: #ffe8b1;
+  color: #c7a046;
   outline: none;
 }
 
@@ -709,6 +857,10 @@ button {
   text-align: right;
 }
 
+[dir="rtl"] .hero-copy {
+  text-align: center;
+}
+
 [dir="rtl"] .message-row.assistant {
   align-self: flex-end;
 }
@@ -718,16 +870,8 @@ button {
 }
 
 @media (max-width: 940px) {
-  body {
-    background: linear-gradient(
-      to bottom,
-      var(--loreal-black) 0 420px,
-      var(--loreal-ivory) 420px 100%
-    );
-  }
-
   .hero-card {
-    grid-template-columns: 1fr;
+    padding: 24px 20px 26px;
   }
 
   .controls-panel {
