@@ -260,7 +260,6 @@ function setupAutoDirectionSync() {
 
   window.addEventListener("hashchange", syncDirection);
 
-  // Google Translate can update language state without a direct DOM attribute change.
   setInterval(syncDirection, 1200);
 
   syncDirection();
@@ -369,7 +368,6 @@ function getFilteredProducts() {
         .replace(/fragrance\s*[-]?\s*free/gi, "unscented"),
     );
 
-    // Every typed token must match the product, but each token can match via synonyms.
     return termGroups.every((group) =>
       group.some((term) => haystack.includes(term)),
     );
@@ -523,6 +521,16 @@ function getSelectedProducts() {
   return state.products.filter((product) => state.selectedIds.has(product.id));
 }
 
+function getProductCatalogForWorker() {
+  return state.products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    brand: product.brand,
+    category: product.category,
+    description: product.description,
+  }));
+}
+
 function toggleProductSelection(productId) {
   if (state.selectedIds.has(productId)) {
     state.selectedIds.delete(productId);
@@ -594,6 +602,8 @@ async function generateRoutine() {
   const selectedProducts = getSelectedProducts();
   if (!selectedProducts.length) return;
 
+  const historyBeforeUserMessage = [...state.chatHistory];
+
   const prompt =
     "Create a personalized beauty routine using only the selected products. Organize the answer in a practical order, such as morning, evening, or use-as-needed when relevant. Explain where each selected product fits, how often to use it, and why it belongs there. If the selection does not make a complete routine, clearly say what is missing instead of inventing products.";
 
@@ -610,7 +620,7 @@ async function generateRoutine() {
       mode: "routine",
       message: prompt,
       selectedProducts,
-      chatHistory: state.chatHistory,
+      chatHistory: historyBeforeUserMessage,
     });
 
     loadingMessage.remove();
@@ -623,7 +633,7 @@ async function generateRoutine() {
     loadingMessage.remove();
     appendMessage(
       "assistant",
-      "I couldn’t generate the routine right now. Confirm your Cloudflare Worker is deployed and that OPENAI_API_KEY is set in the Worker environment.",
+      "I couldn’t generate the routine right now. Confirm your Cloudflare Worker is deployed and that GROQ_API_KEY is set in the Worker environment.",
       { persist: false },
     );
   } finally {
@@ -634,6 +644,8 @@ async function generateRoutine() {
 async function sendChatMessage() {
   const message = userInput.value.trim();
   if (!message || state.isLoading) return;
+
+  const historyBeforeUserMessage = [...state.chatHistory];
 
   userInput.value = "";
   appendMessage("user", message);
@@ -646,7 +658,7 @@ async function sendChatMessage() {
       mode: "chat",
       message,
       selectedProducts: getSelectedProducts(),
-      chatHistory: state.chatHistory,
+      chatHistory: historyBeforeUserMessage,
     });
 
     loadingMessage.remove();
@@ -659,7 +671,7 @@ async function sendChatMessage() {
     loadingMessage.remove();
     appendMessage(
       "assistant",
-      "I couldn’t get a response right now. Verify the Worker endpoint is live and OPENAI_API_KEY is configured in the Worker environment.",
+      "I couldn’t get a response right now. Verify the Worker endpoint is live and GROQ_API_KEY is configured in the Worker environment.",
       { persist: false },
     );
   } finally {
@@ -668,18 +680,23 @@ async function sendChatMessage() {
 }
 
 async function callWorker(payload) {
+  const requestPayload = {
+    ...payload,
+    productCatalog: getProductCatalogForWorker(),
+  };
+
   const response = await fetch(WORKER_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   });
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = data.error || "Worker request failed.";
+    const message = data.error || data.details || "Worker request failed.";
     throw new Error(message);
   }
 

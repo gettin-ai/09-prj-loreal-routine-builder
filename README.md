@@ -193,3 +193,39 @@ Resolution:
 - Responses API call uses `text.verbosity`.
 - Worker payload does not use deprecated `reasoning_effort`.
 - Frontend citation filtering uses helpers that exist in `script.js`.
+
+## Project Updates: L’Oréal AI Product Advisor
+
+This project was updated from a basic chatbot into a branded, catalog-aware L’Oréal beauty advisor powered by a Cloudflare Worker and the Groq API.
+
+### Key Features Added
+
+- Built a branded L’Oréal chatbot experience for skincare, haircare, makeup, fragrance, and personalized routine recommendations.
+- Added a responsive chat interface with separate user and assistant message bubbles.
+- Added product selection functionality so users can choose products and generate a personalized routine from those selections.
+- Added conversation history so the chatbot can respond with more context during a session.
+- Added a product catalog grounding system so the chatbot only recommends products from the project’s `products.json` file.
+- Added polite refusal behavior for unrelated questions outside beauty, L’Oréal products, routines, or recommendations.
+- Added search and category filtering to help users browse the product catalog.
+- Added selected-product persistence using `localStorage`, so product selections remain after refreshing the page.
+- Added product detail modal support for viewing more information about individual products.
+- Added basic multilingual layout support by detecting right-to-left language settings.
+
+### API and Security Changes
+
+Originally, the project used an OpenAI API setup. The API key expired, so the project was migrated to the Groq API.
+
+The frontend now sends requests to a Cloudflare Worker instead of calling an AI API directly from the browser. This protects the API key and follows a better production-style pattern.
+
+The request flow is:
+
+```txt
+Frontend website
+    ↓
+script.js
+    ↓
+Cloudflare Worker
+    ↓
+Groq API
+    ↓
+Catalog-restricted chatbot response
