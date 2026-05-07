@@ -914,7 +914,44 @@ function appendMessage(role, text, options = {}) {
   `;
 
   chatWindow.appendChild(row);
+
+  if (role === "assistant") {
+    scrollChatToMessageStart(row);
+  } else {
+    scrollChatToBottom();
+  }
+}
+
+  const row = document.createElement("div");
+  row.className = `message-row ${role === "user" ? "user" : "assistant"}`;
+
+  const label = role === "user" ? "You" : "Advisor";
+
+  const citationMarkup =
+    role === "assistant" ? renderCitationList(citations, text) : "";
+
+  row.innerHTML = `
+    <div class="message-label">${label}</div>
+    <div class="message-bubble">${formatMessageText(text)}${citationMarkup}</div>
+  `;
+
+  chatWindow.appendChild(row);
   scrollChatToBottom();
+
+
+function scrollChatToMessageStart(messageElement) {
+  requestAnimationFrame(() => {
+    const containerRect = chatWindow.getBoundingClientRect();
+    const messageRect = messageElement.getBoundingClientRect();
+
+    const messageTop =
+      messageRect.top - containerRect.top + chatWindow.scrollTop;
+
+    chatWindow.scrollTo({
+      top: Math.max(0, messageTop - 12),
+      behavior: "smooth",
+    });
+  });
 }
 
 function scrollChatToBottom() {
