@@ -629,11 +629,11 @@ async function generateRoutine() {
       persist: true,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Routine worker request failed:", error);
     loadingMessage.remove();
     appendMessage(
       "assistant",
-      "I couldn’t generate the routine right now. Confirm your Cloudflare Worker is deployed and that GROQ_API_KEY is set in the Worker environment.",
+      "Sorry, I couldn’t generate the routine right now. Please try again in a moment.",
       { persist: false },
     );
   } finally {
@@ -649,6 +649,15 @@ async function sendChatMessage() {
 
   userInput.value = "";
   appendMessage("user", message);
+
+  if (isClearlyOffTopic(message)) {
+    appendMessage(
+      "assistant",
+      getFriendlyOffTopicResponse(historyBeforeUserMessage),
+      { persist: true },
+    );
+    return;
+  }
 
   const loadingMessage = appendLoadingMessage("Thinking...");
   setBusyState(true, "Searching and replying");
@@ -667,11 +676,11 @@ async function sendChatMessage() {
       persist: true,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Chat worker request failed:", error);
     loadingMessage.remove();
     appendMessage(
       "assistant",
-      "I couldn’t get a response right now. Verify the Worker endpoint is live and GROQ_API_KEY is configured in the Worker environment.",
+      "Sorry, I couldn’t reach the beauty advisor right now. Please try again in a moment.",
       { persist: false },
     );
   } finally {
@@ -720,6 +729,10 @@ function normalizeOffTopicText(text, chatHistory = []) {
     return text;
   }
 
+  return getFriendlyOffTopicResponse(chatHistory);
+}
+
+function getFriendlyOffTopicResponse(chatHistory = []) {
   const previousAssistantText = getLastAssistantMessage(chatHistory);
 
   const previousIndex = FRIENDLY_OFF_TOPIC_RESPONSES.findIndex(
@@ -734,6 +747,104 @@ function normalizeOffTopicText(text, chatHistory = []) {
       : 0;
 
   return FRIENDLY_OFF_TOPIC_RESPONSES[nextIndex];
+}
+
+function isClearlyOffTopic(message) {
+  const normalizedMessage = normalizeTopicText(message);
+  if (!normalizedMessage) return false;
+
+  if (containsBeautyOrCatalogTerm(normalizedMessage)) {
+    return false;
+  }
+
+  const offTopicPatterns = [
+    /\b(super bowl|nba|nfl|mlb|nhl|soccer|football|basketball|baseball)\b/,
+    /\b(president|election|politics|political|congress|senate|mayor)\b/,
+    /\b(stock|stocks|crypto|bitcoin|ethereum|invest|investment|finance)\b/,
+    /\b(weather|forecast|temperature|rain|snow)\b/,
+    /\b(recipe|cook|cooking|bake|baking|restaurant|travel|hotel|flight)\b/,
+    /\b(homework|essay|history essay|book report|solve this|math problem)\b/,
+    /\b(code|coding|javascript|python|html|css|cloudflare worker)\b/,
+    /\b(capital of|who won|who is|what year|world war|civil war)\b/,
+  ];
+
+  return offTopicPatterns.some((pattern) => pattern.test(normalizedMessage));
+}
+
+function containsBeautyOrCatalogTerm(normalizedMessage) {
+  const beautyTerms = [
+    "loreal",
+    "beauty",
+    "skin",
+    "skincare",
+    "hair",
+    "haircare",
+    "makeup",
+    "cosmetic",
+    "fragrance",
+    "perfume",
+    "cologne",
+    "scent",
+    "routine",
+    "product",
+    "products",
+    "cleanser",
+    "moisturizer",
+    "moisturiser",
+    "serum",
+    "spf",
+    "sunscreen",
+    "foundation",
+    "mascara",
+    "lipstick",
+    "concealer",
+    "blush",
+    "toner",
+    "retinol",
+    "acne",
+    "blemish",
+    "dry",
+    "oily",
+    "sensitive",
+    "hydration",
+    "hydrate",
+    "frizz",
+    "shampoo",
+    "conditioner",
+    "scalp",
+    "curl",
+    "shade",
+    "wrinkle",
+    "anti aging",
+    "antiage",
+  ];
+
+  if (beautyTerms.some((term) => normalizedMessage.includes(term))) {
+    return true;
+  }
+
+  return state.products.some((product) => {
+    const productText = normalizeTopicText(
+      `${product.name} ${product.brand} ${product.category}`,
+    );
+
+    const productWords = productText
+      .split(" ")
+      .filter((word) => word.length >= 4);
+
+    return productWords.some((word) => normalizedMessage.includes(word));
+  });
+}
+
+function normalizeTopicText(value) {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/l['’\s-]*oreal/g, "loreal")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function getLastAssistantMessage(chatHistory = []) {
