@@ -1,4 +1,4 @@
-const WORKER_URL = "https://lorealproductselect.pixelatedmail.workers.dev/";
+const WORKER_URL = "https://free-loreal-chatbot-worker.pixelatedmail.workers.dev/";
 
 const LEGACY_OFF_TOPIC_RESPONSE =
   "I can only help with beauty topics like skincare, haircare, makeup, fragrance, and L'Oreal product routines. Please ask a beauty-related question.";
